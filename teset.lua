@@ -1,170 +1,203 @@
---// ========================================== 
---// UI HUB V3: AUTO TOUCH & SMART SCAN (BENDERA/POINT)
---// ========================================== 
-local Players = game:GetService("Players") 
-local RunService = game:GetService("RunService") 
-local LocalPlayer = Players.LocalPlayer 
+--// ==========================================
+--// MERDEKA HUB V4: EVENT POINT & FLAG COLLECTOR
+--// ==========================================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
---// Buat UI 
-local ScreenGui = Instance.new("ScreenGui") 
-ScreenGui.Name = "MerdekaHubV3" 
-ScreenGui.ResetOnSpawn = false 
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") 
+--// Cipta UI Utama
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EventPointCollectorHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local MainFrame = Instance.new("Frame") 
-MainFrame.Size = UDim2.new(0, 280, 0, 230) 
-MainFrame.Position = UDim2.new(0.5, -140, 0.5, -115) 
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25) 
-MainFrame.BorderSizePixel = 0 
-MainFrame.Parent = ScreenGui 
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 310, 0, 270)
+MainFrame.Position = UDim2.new(0.5, -155, 0.5, -135)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
 
-local UICorner = Instance.new("UICorner") 
-UICorner.CornerRadius = UDim.new(0, 12) 
-UICorner.Parent = MainFrame 
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
 
-local Title = Instance.new("TextLabel") 
-Title.Size = UDim2.new(1, 0, 0, 40) 
-Title.BackgroundColor3 = Color3.fromRGB(255, 200, 0) 
-Title.Text = "AUTO TOUCH BENDERA/POINT" 
-Title.TextColor3 = Color3.fromRGB(0, 0, 0) 
-Title.Font = Enum.Font.GothamBold 
-Title.TextSize = 14 
-Title.Parent = MainFrame 
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+Title.Text = "EVENT POINT COLLECTOR V4"
+Title.TextColor3 = Color3.fromRGB(0, 0, 0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = MainFrame
 
-local InputBox = Instance.new("TextBox") 
-InputBox.Size = UDim2.new(1, -20, 0, 35) 
-InputBox.Position = UDim2.new(0, 10, 0, 50) 
-InputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50) 
-InputBox.TextColor3 = Color3.fromRGB(255, 255, 255) 
-InputBox.PlaceholderText = "Cari semua objek (Auto-Scan)" 
-InputBox.Font = Enum.Font.Gotham 
-InputBox.TextSize = 14 
-InputBox.ClearTextOnFocus = false
-InputBox.TextEditable = false -- Dimatikan kerana kita guna Smart Scan
-InputBox.Parent = MainFrame 
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = Title
 
-local InputCorner = Instance.new("UICorner") 
-InputCorner.CornerRadius = UDim.new(0, 5) 
-InputCorner.Parent = InputBox 
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 30)
+StatusLabel.Position = UDim2.new(0, 10, 0, 45)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Standby"
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 12
+StatusLabel.Parent = MainFrame
 
---// Pemboleh Ubah 
-local AutoTouchOn = false 
+--// Kawalan
+local AutoCollectActive = false
+local VisitedObjects = {}
 
---// Fungsi untuk Cari Objek Berdasarkan TouchTransmitter
-local function FindNearestCollectable() 
-    local character = LocalPlayer.Character 
-    if not character then return nil end 
-     
-    local charPos = character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position or Vector3.zero 
-    local nearestObj, nearestDist = nil, math.huge 
-     
-    for _, obj in pairs(workspace:GetDescendants()) do 
-        -- Tapis: Cari objek fizikal yang BUKAN sebahagian daripada pemain dan BUKAN baseplate
-        if obj:IsA("BasePart") and obj.Name ~= "Baseplate" and obj.Name ~= "Terrain" and not obj:IsDescendantOf(character) then 
-             
-            -- Semak jika objek ini boleh disentuh (TouchTransmitter) atau namanya mencurigakan (flag/point)
-            local hasTouch = obj:FindFirstChildWhichIsA("TouchTransmitter")
-            local isFlagOrPoint = string.match(string.lower(obj.Name), "flag") or string.match(string.lower(obj.Name), "bendera") or string.match(string.lower(obj.Name), "point")
-            
-            if hasTouch or isFlagOrPoint then
-                local dist = (obj.Position - charPos).Magnitude 
-                 
-                if dist < nearestDist and dist < 5000 then 
-                    nearestDist = dist 
-                    nearestObj = obj 
-                end 
+--// TAPISAN KETAT: Hanya cari Objek Event/Point
+local function IsValidPointObject(obj)
+    if not obj:IsA("BasePart") then return false end
+    if obj.Transparency >= 1 then return false end
+    if obj.Name == "Baseplate" or obj.Name == "Terrain" then return false end
+
+    local char = LocalPlayer.Character
+    if char and obj:IsDescendantOf(char) then return false end
+
+    local objName = string.lower(obj.Name)
+    local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
+
+    -- 1. UTAMA: Mesti mempunyai pemicu TouchInterest (Sebab kena sentuh untuk dapat point)
+    local hasTouchTrigger = obj:FindFirstChildOfClass("TouchTransmitter") ~= nil
+
+    -- 2. UTAMA: Mempunyai nilai mata (Value) di dalamnya
+    local hasPointValue = false
+    for _, child in pairs(obj:GetChildren()) do
+        if child:IsA("IntValue") or child:IsA("NumberValue") or child:IsA("StringValue") then
+            hasPointValue = true
+            break
+        end
+    end
+
+    -- 3. Kata Kunci Khas Event / Point / Flag
+    local keywords = {"flag", "bendera", "point", "score", "event", "token", "coin"}
+    local matchesKeyword = false
+    for _, word in ipairs(keywords) do
+        if string.find(objName, word) or string.find(parentName, word) then
+            matchesKeyword = true
+            break
+        end
+    end
+
+    -- Objek dianggap VALID jika: (Ada Touch + Kata Kunci) ATAU (Ada Value Mata)
+    if (hasTouchTrigger and matchesKeyword) or hasPointValue then
+        return true
+    end
+
+    return false
+end
+
+--// Dapatkan Senarai Objek Point Khas sahaja
+local function GetPointTargets()
+    local targets = {}
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if IsValidPointObject(obj) and not VisitedObjects[obj] then
+            table.insert(targets, obj)
+        end
+    end
+    return targets
+end
+
+--// Loop Pergerakan
+local function StartAutoCollect()
+    task.spawn(function()
+        while AutoCollectActive do
+            local targets = GetPointTargets()
+
+            if #targets == 0 then
+                VisitedObjects = {} -- Reset memori jika semua sudah disentuh
+                StatusLabel.Text = "Status: Mengimbas semula..."
+                task.wait(1)
+                targets = GetPointTargets()
             end
-        end 
-    end 
-     
-    return nearestObj 
-end 
 
---// Fungsi Sentuh (Teleport TEPAT ke objek) 
-local function TouchObject(obj) 
-    local Char = LocalPlayer.Character 
-    local HRP = Char and Char:FindFirstChild("HumanoidRootPart") 
-     
-    if HRP then 
-        -- Teleport ke titik yang sangat dekat untuk mencetuskan 'Touch'
-        HRP.CFrame = CFrame.new(obj.Position)
-    end 
-end 
+            if #targets > 0 then
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
---// Loop Auto Touch 
-local function StartAutoTouch() 
-    task.spawn(function() 
-        while AutoTouchOn do 
-            local target = FindNearestCollectable() 
-            if target then 
-                TouchObject(target) 
-                task.wait(0.1) -- Cepatkan sedikit proses
+                if hrp then
+                    -- Susun ikut yang paling dekat
+                    table.sort(targets, function(a, b)
+                        return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
+                    end)
+
+                    local target = targets[1]
+                    if target and target:IsDescendantOf(workspace) then
+                        StatusLabel.Text = "Kutip: " .. target.Name
+                        
+                        -- Teleport betul-betul di tengah objek
+                        hrp.CFrame = target.CFrame
+                        
+                        -- Tandakan objek yang telah diambil
+                        VisitedObjects[target] = true
+                    end
+                end
             else
-                task.wait(1) -- Jika tiada objek, tunggu lama sedikit sebelum scan semula
-            end 
-        end 
-    end) 
-end 
+                StatusLabel.Text = "Status: Objek Event Point tidak dijumpai"
+            end
 
---// Butang 
-local function CreateButton(text, yPos, color, func) 
-    local btn = Instance.new("TextButton") 
-    btn.Size = UDim2.new(1, -20, 0, 40) 
-    btn.Position = UDim2.new(0, 10, 0, yPos) 
-    btn.BackgroundColor3 = color 
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255) 
-    btn.Text = text 
-    btn.Font = Enum.Font.GothamBold 
-    btn.TextSize = 14 
-    btn.Parent = MainFrame 
-     
-    local btnCorner = Instance.new("UICorner") 
-    btnCorner.CornerRadius = UDim.new(0, 6) 
-    btnCorner.Parent = btn 
-     
-    btn.MouseButton1Click:Connect(func) 
-end 
+            task.wait(0.3)
+        end
+    end)
+end
 
---// Pasang Butang 
-CreateButton("Teleport ke 1 Objek", 95, Color3.fromRGB(50, 130, 255), function() 
-    local target = FindNearestCollectable() 
-    if target then 
-        TouchObject(target) 
-    else 
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Info"; Text = "Tiada objek point/bendera dijumpai di map!"; Duration = 3}) 
-    end 
-end) 
+--// Fungsi Butang
+local function CreateButton(text, yPos, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Text = text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = MainFrame
 
-CreateButton("AUTO COLLECT: OFF", 145, Color3.fromRGB(50, 200, 100), function(btn) 
-    AutoTouchOn = not AutoTouchOn 
-    if AutoTouchOn then 
-        btn.Text = "AUTO COLLECT: ON" 
-        btn.BackgroundColor3 = Color3.fromRGB(255, 80, 80) 
-        StartAutoTouch() 
-    else 
-        btn.Text = "AUTO COLLECT: OFF" 
-        btn.BackgroundColor3 = Color3.fromRGB(50, 200, 100) 
-    end 
-end) 
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
 
---// Fungsi Drag UI 
-local dragging, dragInput, dragStart, startPos 
-MainFrame.InputBegan:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-        dragging = true 
-        dragStart = input.Position 
-        startPos = MainFrame.Position 
-        input.Changed:Connect(function() 
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end 
-        end) 
-    end 
-end) 
+    btn.MouseButton1Click:Connect(function()
+        callback(btn)
+    end)
+end
 
-MainFrame.InputChanged:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
-        if dragging then 
-            local delta = input.Position - dragStart 
-            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) 
-        end 
-    end 
+-- Butang Control
+CreateButton("KUTIP 1 EVENT POINT", 85, Color3.fromRGB(40, 120, 220), function()
+    local targets = GetPointTargets()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if hrp and #targets > 0 then
+        table.sort(targets, function(a, b)
+            return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
+        end)
+        hrp.CFrame = targets[1].CFrame
+        StatusLabel.Text = "Pergi ke: " .. targets[1].Name
+    else
+        StatusLabel.Text = "Tiada Point Event Ditemui"
+    end
+end)
+
+CreateButton("AUTO EVENT POINT: OFF", 135, Color3.fromRGB(40, 180, 90), function(btn)
+    AutoCollectActive = not AutoCollectActive
+    if AutoCollectActive then
+        btn.Text = "AUTO EVENT POINT: ON"
+        btn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        StartAutoCollect()
+    else
+        btn.Text = "AUTO EVENT POINT: OFF"
+        btn.BackgroundColor3 = Color3.fromRGB(40, 180, 90)
+        StatusLabel.Text = "Status: OFF"
+    end
+end)
+
+CreateButton("CLEAR MEMORI COLLECT", 185, Color3.fromRGB(100, 100, 110), function()
+    VisitedObjects = {}
+    StatusLabel.Text = "Status: Memori Diclear"
 end)
