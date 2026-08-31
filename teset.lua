@@ -1,12 +1,12 @@
 --// ==========================================================
---// MERDEKA HUB V7 (ANTI-HANDLE FIX)
+--// MERDEKA HUB V8 (FLAG HUNTER) - AUTO COLLECT HIDDEN FLAGS
 --// ==========================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 --// Setup UI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MerdekaV7Hub"
+ScreenGui.Name = "MerdekaV8Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -26,7 +26,7 @@ UICorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
-Title.Text = "MERDEKA HUB V7"
+Title.Text = "MERDEKA HUB V8 (FLAGS)"
 Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -50,42 +50,30 @@ StatusLabel.Parent = MainFrame
 local AutoCollectOn = false
 local VisitedObjects = {}
 
---// TAPISAN KETAT: BUANG HANDLE, TOOL, ACCESSORY, PEMAIN!
-local function IsValidPointObject(obj)
+--// PENAPISAN KETAT: BUANG HANDLE, PEMAIN, DAN OBJEK RAWAK
+local function IsValidFlagObject(obj)
     if not obj:IsA("BasePart") then return false end
     if obj.Transparency >= 1 then return false end
     if obj.Name == "Baseplate" or obj.Name == "Terrain" then return false end
 
-    -- //⚠️ TAPISAN BARU #1: Buang SEMUA Tool, Accessory (Topi), dan Handle
+    -- Buang Handle / Topi / Senjata
     if string.lower(obj.Name) == "handle" then return false end
     if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then
         return false
     end
-    -- //⚠️ Tamat Tapisan #1
 
-    -- //⚠️ TAPISAN #2: Buang SEMUA badan pemain lain
+    -- Buang Pemain Lain
     for _, player in pairs(Players:GetPlayers()) do
         if player.Character and obj:IsDescendantOf(player.Character) then
             return false
         end
     end
-    -- //⚠️ Tamat Tapisan #2
 
-    -- Ciri-ciri Point
+    -- Cari Kata Kunci FLAG (Sangat Ketat)
     local objName = string.lower(obj.Name)
     local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
     
-    local hasTouchTrigger = obj:FindFirstChildOfClass("TouchTransmitter") ~= nil
-    local hasValueOrPrompt = false
-    for _, child in pairs(obj:GetChildren()) do
-        if child:IsA("IntValue") or child:IsA("NumberValue") or child:IsA("StringValue") or child:IsA("ProximityPrompt") then
-            hasValueOrPrompt = true
-            break
-        end
-    end
-
-    -- Kata kunci
-    local keywords = {"flag", "bendera", "point", "score", "event", "token", "coin", "merdeka"}
+    local keywords = {"flag", "golden", "malaysia", "merdeka", "hidden", "bendera", "my"}
     local matchesKeyword = false
     for _, word in ipairs(keywords) do
         if string.find(objName, word) or string.find(parentName, word) then
@@ -94,39 +82,35 @@ local function IsValidPointObject(obj)
         end
     end
 
-    -- Valid jika ada Touch + Keyword, ATAU ada Value/Prompt
-    if (hasTouchTrigger and matchesKeyword) or hasValueOrPrompt then
+    if matchesKeyword then
         return true
     end
 
     return false
 end
 
---// Ambil Senarai Model/Objek Sah
+--// Ambil Senarai Flag Yang Sah
 local function GetValidTargets()
     local targets = {}
     for _, obj in pairs(workspace:GetDescendants()) do
-        -- Jika ia Model, kita sasarkan PrimaryPart (bahagian utama), bukan Handle
         if obj:IsA("Model") then
             local prim = obj.PrimaryPart
-            if prim and IsValidPointObject(prim) and not VisitedObjects[prim] then
+            if prim and IsValidFlagObject(prim) and not VisitedObjects[prim] then
                 table.insert(targets, prim)
             end
-        -- Jika ia BasePart biasa (Part), kita terus sasarkan
-        elseif obj:IsA("BasePart") and IsValidPointObject(obj) and not VisitedObjects[obj] then
+        elseif obj:IsA("BasePart") and IsValidFlagObject(obj) and not VisitedObjects[obj] then
             table.insert(targets, obj)
         end
     end
     return targets
 end
 
---// Fungsi Auto-Prompt & Teleport
-local function TeleportAndInteract(target)
+--// Teleport Dan Kumpul
+local function TeleportAndCollect(target)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     
     if hrp and target then
-        -- Teleport ke bahagian utama (PrimaryPart), elak Handle!
         hrp.CFrame = target.CFrame + Vector3.new(0, 3, 0)
         
         task.wait(0.2)
@@ -137,11 +121,12 @@ local function TeleportAndInteract(target)
             prompt:Trigger()
         end
         
+        -- Tandakan sebagai sudah dikutip
         VisitedObjects[target] = true
     end
 end
 
---// Auto Collect Loop
+--// Loop Auto Collect
 local function StartAutoLoop()
     task.spawn(function()
         while AutoCollectOn do
@@ -149,7 +134,7 @@ local function StartAutoLoop()
             
             if #targets == 0 then
                 VisitedObjects = {}
-                StatusLabel.Text = "Mengimbas semula..."
+                StatusLabel.Text = "Mengimbas semula (Reset)..."
                 task.wait(1)
             else
                 local char = LocalPlayer.Character
@@ -162,8 +147,8 @@ local function StartAutoLoop()
                     
                     local nearest = targets[1]
                     if nearest then
-                        StatusLabel.Text = "Kutip: " .. nearest.Name
-                        TeleportAndInteract(nearest)
+                        StatusLabel.Text = "Cari Flag: " .. nearest.Name
+                        TeleportAndCollect(nearest)
                     end
                 end
             end
@@ -192,7 +177,7 @@ local function CreateButton(text, yPos, color, func)
     btn.MouseButton1Click:Connect(func)
 end
 
-CreateButton("KUTIP SATU OBJEK", 85, Color3.fromRGB(50, 120, 220), function()
+CreateButton("KUTIP SATU FLAG", 85, Color3.fromRGB(50, 120, 220), function()
     local targets = GetValidTargets()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -201,10 +186,10 @@ CreateButton("KUTIP SATU OBJEK", 85, Color3.fromRGB(50, 120, 220), function()
         table.sort(targets, function(a, b)
             return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
         end)
-        TeleportAndInteract(targets[1])
+        TeleportAndCollect(targets[1])
         StatusLabel.Text = "Pergi ke: " .. targets[1].Name
     else
-        StatusLabel.Text = "Tiada objek ditemui!"
+        StatusLabel.Text = "Tiada Flag ditemui!"
     end
 end)
 
