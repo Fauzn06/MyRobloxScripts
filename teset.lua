@@ -1,19 +1,19 @@
 --// ==========================================================
---// MERDEKA HUB V14 (FIX: JUMPA 1, BUANG 0 & ORANG)
+--// MERDEKA HUB V15 (INPUT BOX SEARCH + SAFE MOVE)
 --// ==========================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
---// SETUP UI (Sama macam V13)
+--// SETUP UI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MerdekaV14Hub"
+ScreenGui.Name = "MerdekaV15Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 230)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -115)
+MainFrame.Size = UDim2.new(0, 300, 0, 260) -- Tinggi sedikit untuk textbox
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -130)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -24,6 +24,7 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
 
+-- Bar Tajuk
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 40)
 TopBar.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
@@ -39,13 +40,14 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "MERDEKA HUB V14"
+Title.Text = "MERDEKA HUB V15"
 Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
+-- Butang Tutup
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 35, 1, 0)
 CloseButton.Position = UDim2.new(1, -35, 0, 0)
@@ -55,14 +57,29 @@ CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseButton.Font = Enum.Font.GothamBold
 CloseButton.TextSize = 14
 CloseButton.Parent = TopBar
-
 local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseButton
 
+-- KOTAK TEKS (InputBox) - Untuk taip nama objek
+local InputBox = Instance.new("TextBox")
+InputBox.Size = UDim2.new(1, -20, 0, 35)
+InputBox.Position = UDim2.new(0, 10, 0, 45)
+InputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+InputBox.PlaceholderText = "Taip nama objek (cth: 1 atau Flag)"
+InputBox.Text = "1" -- Default kepada 1
+InputBox.Font = Enum.Font.Gotham
+InputBox.TextSize = 14
+InputBox.Parent = MainFrame
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 5)
+InputCorner.Parent = InputBox
+
+-- Status Label
 local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -20, 0, 30)
-StatusLabel.Position = UDim2.new(0, 10, 0, 45)
+StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+StatusLabel.Position = UDim2.new(0, 10, 0, 85)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Status: Sedia"
 StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -70,6 +87,7 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 12
 StatusLabel.Parent = MainFrame
 
+-- Butang Buka Semula (Sembunyi)
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 50, 0, 50)
 OpenButton.Position = UDim2.new(0, 10, 0.5, -25)
@@ -80,7 +98,6 @@ OpenButton.Font = Enum.Font.GothamBold
 OpenButton.TextSize = 20
 OpenButton.Visible = false
 OpenButton.Parent = ScreenGui
-
 local OpenCorner = Instance.new("UICorner")
 OpenCorner.CornerRadius = UDim.new(1, 0)
 OpenCorner.Parent = OpenButton
@@ -95,7 +112,7 @@ OpenButton.MouseButton1Click:Connect(function()
     OpenButton.Visible = false
 end)
 
---// CUSTOM DRAG
+-- CUSTOM DRAG (Untuk seret UI)
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -122,7 +139,7 @@ TopBar.InputChanged:Connect(function(input)
     end
 end)
 
---// ========== LOGIK KETAT: JUMPA "1", TOLAK "0", ORANG & HANDLE ==========
+--// ========== LOGIK CARIAN MENGIKUT INPUT ==========
 local AutoCollectOn = false
 local VisitedObjects = {}
 
@@ -138,15 +155,13 @@ local function IsValidTarget(obj)
         if player.Character and obj:IsDescendantOf(player.Character) then return false end
     end
 
-    -- // KUNCI UTAMA:
+    -- Ambil Teks dari Kotak
+    local searchTerm = InputBox.Text
     local objName = string.lower(obj.Name)
     local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
-    
-    -- Tolak terus jika objek atau parentnya bernama "0"
-    if objName == "0" or parentName == "0" then return false end
 
-    -- Terima hanya jika objek atau parentnya bernama "1" (tak perlu trigger lagi!)
-    if objName == "1" or parentName == "1" then
+    -- Jika nama objek atau parent mengandungi teks yang anda taip
+    if string.find(objName, string.lower(searchTerm)) or string.find(parentName, string.lower(searchTerm)) then
         return true
     end
 
@@ -158,45 +173,54 @@ local function GetValidTargets()
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("Model") then
             local prim = obj.PrimaryPart
-            -- Semak nama Model tu sendiri
             if prim and IsValidTarget(prim) and not VisitedObjects[prim] then
                 table.insert(targets, prim)
             end
-        elseif obj:IsA("BasePart") then
-            -- Semak nama Part tu sendiri
-            if IsValidTarget(obj) and not VisitedObjects[obj] then
-                table.insert(targets, obj)
-            end
+        elseif obj:IsA("BasePart") and IsValidTarget(obj) and not VisitedObjects[obj] then
+            table.insert(targets, obj)
         end
     end
     return targets
 end
 
---// SAFE MOVE (Jalan laju, bukan teleport)
+--// ========== LOGIK SAFE MOVE (JALAN LAJU KE OBJEK) ==========
 local function SafeMoveAndCollect(target)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
     if hrp and hum then
-        hum.WalkSpeed = 250 
+        StatusLabel.Text = "Mencari: " .. target.Name
+        
+        -- Set kelajuan tinggi (Jalan laju, bukan teleport terus)
+        hum.WalkSpeed = 150 
+        
+        -- Suruh berjalan ke objek
         hum:MoveTo(target.Position + Vector3.new(0, 3, 0))
         
+        -- Tunggu sampai sampai ATAU timeout 60 saat
         local start = tick()
-        while (hrp.Position - target.Position).Magnitude > 5 and tick() - start < 5 do
+        while (hrp.Position - target.Position).Magnitude > 5 and tick() - start < 60 do
             task.wait()
         end
         
+        -- Kembalikan kelajuan normal
         hum.WalkSpeed = 16
+        
+        -- Auto trigger ProximityPrompt jika ada
+        local prompt = target:FindFirstChildOfClass("ProximityPrompt")
+        if prompt then prompt:Trigger() end
+        
         VisitedObjects[target] = true
     end
 end
 
---// Auto Collect Loop
+--// AUTO COLLECT LOOP
 local function StartAutoLoop()
     task.spawn(function()
         while AutoCollectOn do
             local targets = GetValidTargets()
+
             if #targets == 0 then
                 VisitedObjects = {}
                 StatusLabel.Text = "Cari semula..."
@@ -210,7 +234,6 @@ local function StartAutoLoop()
                     end)
                     local nearest = targets[1]
                     if nearest then
-                        StatusLabel.Text = "Kutip: " .. nearest.Name
                         SafeMoveAndCollect(nearest)
                     end
                 end
@@ -220,7 +243,7 @@ local function StartAutoLoop()
     end)
 end
 
---// BUTANG
+--// BUTANG UI
 local function CreateButton(text, yPos, color, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 40)
@@ -237,7 +260,7 @@ local function CreateButton(text, yPos, color, callback)
     btn.MouseButton1Click:Connect(function() callback(btn) end)
 end
 
-CreateButton("GERAK KE '1'", 80, Color3.fromRGB(50, 120, 220), function()
+CreateButton("GERAK KE OBJEK", 115, Color3.fromRGB(50, 120, 220), function()
     local targets = GetValidTargets()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -245,14 +268,13 @@ CreateButton("GERAK KE '1'", 80, Color3.fromRGB(50, 120, 220), function()
         table.sort(targets, function(a, b)
             return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
         end)
-        StatusLabel.Text = "Mula bergerak ke: " .. targets[1].Name
         SafeMoveAndCollect(targets[1])
     else
-        StatusLabel.Text = "Objek '1' tidak dijumpai!"
+        StatusLabel.Text = "Objek tidak dijumpai! Cuba tukar nama."
     end
 end)
 
-CreateButton("AUTO COLLECT: OFF", 130, Color3.fromRGB(40, 180, 90), function(btn)
+CreateButton("AUTO COLLECT: OFF", 160, Color3.fromRGB(40, 180, 90), function(btn)
     AutoCollectOn = not AutoCollectOn
     if AutoCollectOn then
         btn.Text = "AUTO COLLECT: ON"
@@ -265,7 +287,7 @@ CreateButton("AUTO COLLECT: OFF", 130, Color3.fromRGB(40, 180, 90), function(btn
     end
 end)
 
-CreateButton("RESET MEMORI", 180, Color3.fromRGB(120, 120, 120), function()
+CreateButton("RESET MEMORI", 205, Color3.fromRGB(120, 120, 120), function()
     VisitedObjects = {}
     StatusLabel.Text = "Memori telah dikosongkan"
 end)
