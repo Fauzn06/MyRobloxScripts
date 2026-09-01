@@ -1,12 +1,12 @@
 --// ==========================================================
---// MERDEKA HUB V10 (FLOATING OVERLAY)
+--// MERDEKA HUB V11 (SAFE MOVE + TARGET KHUSUS "1")
 --// ==========================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 --// SETUP UI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MerdekaV10Hub"
+ScreenGui.Name = "MerdekaV11Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -23,7 +23,6 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
 
--- Bar Tajuk
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 40)
 TopBar.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
@@ -38,14 +37,13 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "MERDEKA HUB V10"
+Title.Text = "MERDEKA HUB V11 (SAFE)"
 Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Butang Tutup (X)
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 35, 1, 0)
 CloseButton.Position = UDim2.new(1, -35, 0, 0)
@@ -60,7 +58,6 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseButton
 
--- Status
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 30)
 StatusLabel.Position = UDim2.new(0, 10, 0, 45)
@@ -71,7 +68,6 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 12
 StatusLabel.Parent = MainFrame
 
--- Butang Buka Semula (Tersembunyi)
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 50, 0, 50)
 OpenButton.Position = UDim2.new(0, 10, 0.5, -25)
@@ -87,7 +83,6 @@ local OpenCorner = Instance.new("UICorner")
 OpenCorner.CornerRadius = UDim.new(1, 0)
 OpenCorner.Parent = OpenButton
 
--- Fungsi Buka/Tutup
 CloseButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
     OpenButton.Visible = true
@@ -98,83 +93,76 @@ OpenButton.MouseButton1Click:Connect(function()
     OpenButton.Visible = false
 end)
 
---// ========== LOGIK CARIAN (SAMA MACAM V8, TAPI LEBIH KETAT) ==========
+--// ========== LOGIK KETAT: HANYA CARI "1" ==========
 local AutoCollectOn = false
 local VisitedObjects = {}
 
-local function IsValidFlagObject(obj)
-    if not obj:IsA("BasePart") then return false end
-    if obj.Transparency >= 1 then return false end
-    if obj.Name == "Baseplate" or obj.Name == "Terrain" then return false end
-    if string.lower(obj.Name) == "handle" then return false end
-    
-    -- Buang Tool, Topi, dan Pemain Lain
-    if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then return false end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Character and obj:IsDescendantOf(player.Character) then return false end
-    end
-
-    -- Ambil Nama Objek dan Parent
-    local objName = string.lower(obj.Name)
-    local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
-
-    -- Kata Kunci yang diterima
-    local keywords = {"flag", "golden", "malaysia", "merdeka", "hidden", "bendera", "point", "event", "my"}
-    local matchesKeyword = false
-    for _, word in ipairs(keywords) do
-        if string.find(objName, word) or string.find(parentName, word) then
-            matchesKeyword = true
-            break
+local function IsValidTarget()
+    -- Kita cari objek yang NAMANYA "1" sahaja. Dan ia mesti bukan pemain, bukan tool.
+    return function(obj)
+        if not obj:IsA("BasePart") then return false end
+        if obj.Transparency >= 1 then return false end
+        if obj.Name ~= "1" then return false end
+        
+        -- Buang yang bukan target
+        if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then return false end
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character and obj:IsDescendantOf(player.Character) then return false end
         end
-    end
-
-    -- LOGIK PENTING: Terima objek bernombor macam "1", "2", "3" (sebab user cakap ini yang bagi point)
-    local isNumbered = string.match(objName, "^%d+$") ~= nil
-    
-    -- Terima jika: Ada kata kunci ATAU nombor (1,2,3)
-    if matchesKeyword or isNumbered then
+        
         return true
     end
-
-    return false
 end
 
---// Ambil Senarai Sasaran
 local function GetValidTargets()
     local targets = {}
+    local check = IsValidTarget()
+    
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("Model") then
             local prim = obj.PrimaryPart
-            if prim and IsValidFlagObject(prim) and not VisitedObjects[prim] then
+            if prim and check(prim) and not VisitedObjects[prim] then
                 table.insert(targets, prim)
             end
-        elseif obj:IsA("BasePart") and IsValidFlagObject(obj) and not VisitedObjects[obj] then
+        elseif obj:IsA("BasePart") and check(obj) and not VisitedObjects[obj] then
             table.insert(targets, obj)
         end
     end
     return targets
 end
 
---// Teleport & Ambil Point
-local function TeleportAndCollect(target)
+--// ========== LOGIK SAFE MOVE (JALAN LAJU, BUKAN TELEPORT) ==========
+local function SafeMoveAndCollect(target)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-    if hrp and target then
-        -- Teleport ke objek tu
-        hrp.CFrame = target.CFrame + Vector3.new(0, 3, 0)
-        task.wait(0.2)
-
-        -- Auto trigger ProximityPrompt jika ada
+    if hrp and hum then
+        -- Set kelajuan tinggi (jalan laju)
+        hum.WalkSpeed = 250 
+        
+        -- Suruh karakter BERLARI ke lokasi (bukan terus teleport)
+        hum:MoveTo(target.Position + Vector3.new(0, 3, 0))
+        
+        -- Tunggu sehingga sampai atau timeout 5 saat
+        local start = tick()
+        while (hrp.Position - target.Position).Magnitude > 5 and tick() - start < 5 do
+            task.wait()
+        end
+        
+        -- Kembalikan kelajuan normal
+        hum.WalkSpeed = 16
+        
+        -- Cuba trigger prompt jika ada
         local prompt = target:FindFirstChildOfClass("ProximityPrompt")
         if prompt then prompt:Trigger() end
-
-        -- Tandakan objek sebagai sudah dikutip
+        
+        -- Tandakan sebagai sudah dikutip
         VisitedObjects[target] = true
     end
 end
 
---// Loop Auto Collect
+--// Auto Collect Loop
 local function StartAutoLoop()
     task.spawn(function()
         while AutoCollectOn do
@@ -182,7 +170,7 @@ local function StartAutoLoop()
 
             if #targets == 0 then
                 VisitedObjects = {}
-                StatusLabel.Text = "Mengimbas semula (Reset)..."
+                StatusLabel.Text = "Cari semula..."
                 task.wait(1)
             else
                 local char = LocalPlayer.Character
@@ -195,12 +183,12 @@ local function StartAutoLoop()
 
                     local nearest = targets[1]
                     if nearest then
-                        StatusLabel.Text = "Cari Flag: " .. nearest.Name
-                        TeleportAndCollect(nearest)
+                        StatusLabel.Text = "Kutip: " .. nearest.Name
+                        SafeMoveAndCollect(nearest)
                     end
                 end
             end
-            task.wait(0.3)
+            task.wait(0.5) 
         end
     end)
 end
@@ -224,7 +212,7 @@ local function CreateButton(text, yPos, color, callback)
     btn.MouseButton1Click:Connect(function() callback(btn) end)
 end
 
-CreateButton("KUTIP SATU FLAG", 80, Color3.fromRGB(50, 120, 220), function()
+CreateButton("GERAK KE '1'", 80, Color3.fromRGB(50, 120, 220), function()
     local targets = GetValidTargets()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -233,10 +221,10 @@ CreateButton("KUTIP SATU FLAG", 80, Color3.fromRGB(50, 120, 220), function()
         table.sort(targets, function(a, b)
             return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
         end)
-        TeleportAndCollect(targets[1])
-        StatusLabel.Text = "Pergi ke: " .. targets[1].Name
+        StatusLabel.Text = "Mula bergerak ke: " .. targets[1].Name
+        SafeMoveAndCollect(targets[1])
     else
-        StatusLabel.Text = "Tiada Flag ditemui!"
+        StatusLabel.Text = "Objek '1' tidak dijumpai!"
     end
 end)
 
