@@ -1,12 +1,13 @@
 --// ==========================================================
---// MERDEKA HUB V11 (SAFE MOVE + TARGET KHUSUS "1")
+--// MERDEKA HUB V13 (STRICT 1, ANTI-0)
 --// ==========================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
 
 --// SETUP UI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MerdekaV11Hub"
+ScreenGui.Name = "MerdekaV13Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -16,17 +17,19 @@ MainFrame.Position = UDim2.new(0.5, -150, 0.5, -115)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true
+MainFrame.Draggable = false
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
 
+-- Bar Tajuk (Guna untuk drag)
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 40)
 TopBar.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
 TopBar.BorderSizePixel = 0
+TopBar.Active = true
 TopBar.Parent = MainFrame
 
 local TopCorner = Instance.new("UICorner")
@@ -37,13 +40,14 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "MERDEKA HUB V11 (SAFE)"
+Title.Text = "MERDEKA HUB V13"
 Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
+-- Butang Tutup (X)
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 35, 1, 0)
 CloseButton.Position = UDim2.new(1, -35, 0, 0)
@@ -58,6 +62,7 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseButton
 
+-- Status
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 30)
 StatusLabel.Position = UDim2.new(0, 10, 0, 45)
@@ -68,6 +73,7 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 12
 StatusLabel.Parent = MainFrame
 
+-- Butang Buka Semula (Tersembunyi)
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 50, 0, 50)
 OpenButton.Position = UDim2.new(0, 10, 0.5, -25)
@@ -83,6 +89,7 @@ local OpenCorner = Instance.new("UICorner")
 OpenCorner.CornerRadius = UDim.new(1, 0)
 OpenCorner.Parent = OpenButton
 
+-- Fungsi Buka/Tutup
 CloseButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
     OpenButton.Visible = true
@@ -93,38 +100,73 @@ OpenButton.MouseButton1Click:Connect(function()
     OpenButton.Visible = false
 end)
 
---// ========== LOGIK KETAT: HANYA CARI "1" ==========
+-- ========== CUSTOM DRAG FIX ==========
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragging then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X, 
+                startPos.Y.Scale, 
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end
+end)
+
+--// ========== LOGIK CARIAN (KETAT: BUANG 0, KUNCI 1) ==========
 local AutoCollectOn = false
 local VisitedObjects = {}
 
-local function IsValidTarget()
-    -- Kita cari objek yang NAMANYA "1" sahaja. Dan ia mesti bukan pemain, bukan tool.
-    return function(obj)
-        if not obj:IsA("BasePart") then return false end
-        if obj.Transparency >= 1 then return false end
-        if obj.Name ~= "1" then return false end
-        
-        -- Buang yang bukan target
-        if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then return false end
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character and obj:IsDescendantOf(player.Character) then return false end
-        end
-        
-        return true
+local function IsValidTarget(obj)
+    if not obj:IsA("BasePart") then return false end
+    if obj.Transparency >= 1 then return false end
+    if obj.Name == "Baseplate" or obj.Name == "Terrain" then return false end
+    if string.lower(obj.Name) == "handle" then return false end
+    
+    -- //⚠️ TAPISAN UTAMA BARU: TOLAK TERUS OBJEK NAMA "0"
+    if obj.Name == "0" then return false end
+    -- //⚠️ KUNCI: HANYA TERIMA OBJEK NAMA "1"
+    if obj.Name ~= "1" then return false end
+
+    -- Buang Tool, Topi, dan Pemain Lain
+    if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then return false end
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character and obj:IsDescendantOf(player.Character) then return false end
     end
+
+    -- MESTI ada Trigger (TouchTransmitter atau ProximityPrompt) untuk pastikan ia memang boleh dikutip
+    local hasTrigger = (obj:FindFirstChildOfClass("TouchTransmitter") ~= nil) or (obj:FindFirstChildOfClass("ProximityPrompt") ~= nil)
+    if not hasTrigger then return false end
+
+    return true
 end
 
 local function GetValidTargets()
     local targets = {}
-    local check = IsValidTarget()
-    
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("Model") then
             local prim = obj.PrimaryPart
-            if prim and check(prim) and not VisitedObjects[prim] then
+            if prim and IsValidTarget(prim) and not VisitedObjects[prim] then
                 table.insert(targets, prim)
             end
-        elseif obj:IsA("BasePart") and check(obj) and not VisitedObjects[obj] then
+        elseif obj:IsA("BasePart") and IsValidTarget(obj) and not VisitedObjects[obj] then
             table.insert(targets, obj)
         end
     end
@@ -138,26 +180,19 @@ local function SafeMoveAndCollect(target)
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
     if hrp and hum then
-        -- Set kelajuan tinggi (jalan laju)
         hum.WalkSpeed = 250 
-        
-        -- Suruh karakter BERLARI ke lokasi (bukan terus teleport)
         hum:MoveTo(target.Position + Vector3.new(0, 3, 0))
         
-        -- Tunggu sehingga sampai atau timeout 5 saat
         local start = tick()
         while (hrp.Position - target.Position).Magnitude > 5 and tick() - start < 5 do
             task.wait()
         end
         
-        -- Kembalikan kelajuan normal
         hum.WalkSpeed = 16
         
-        -- Cuba trigger prompt jika ada
         local prompt = target:FindFirstChildOfClass("ProximityPrompt")
         if prompt then prompt:Trigger() end
         
-        -- Tandakan sebagai sudah dikutip
         VisitedObjects[target] = true
     end
 end
