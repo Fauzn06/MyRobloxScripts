@@ -1,13 +1,13 @@
 --// ==========================================================
---// MERDEKA HUB V13 (STRICT 1, ANTI-0)
+--// MERDEKA HUB V14 (FIX: JUMPA 1, BUANG 0 & ORANG)
 --// ==========================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
---// SETUP UI
+--// SETUP UI (Sama macam V13)
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MerdekaV13Hub"
+ScreenGui.Name = "MerdekaV14Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -24,7 +24,6 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
 
--- Bar Tajuk (Guna untuk drag)
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 40)
 TopBar.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
@@ -40,14 +39,13 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "MERDEKA HUB V13"
+Title.Text = "MERDEKA HUB V14"
 Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Butang Tutup (X)
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 35, 1, 0)
 CloseButton.Position = UDim2.new(1, -35, 0, 0)
@@ -62,7 +60,6 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseButton
 
--- Status
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 30)
 StatusLabel.Position = UDim2.new(0, 10, 0, 45)
@@ -73,7 +70,6 @@ StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 12
 StatusLabel.Parent = MainFrame
 
--- Butang Buka Semula (Tersembunyi)
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 50, 0, 50)
 OpenButton.Position = UDim2.new(0, 10, 0.5, -25)
@@ -89,7 +85,6 @@ local OpenCorner = Instance.new("UICorner")
 OpenCorner.CornerRadius = UDim.new(1, 0)
 OpenCorner.Parent = OpenButton
 
--- Fungsi Buka/Tutup
 CloseButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
     OpenButton.Visible = true
@@ -100,18 +95,15 @@ OpenButton.MouseButton1Click:Connect(function()
     OpenButton.Visible = false
 end)
 
--- ========== CUSTOM DRAG FIX ==========
+--// CUSTOM DRAG
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
@@ -130,7 +122,7 @@ TopBar.InputChanged:Connect(function(input)
     end
 end)
 
---// ========== LOGIK CARIAN (KETAT: BUANG 0, KUNCI 1) ==========
+--// ========== LOGIK KETAT: JUMPA "1", TOLAK "0", ORANG & HANDLE ==========
 local AutoCollectOn = false
 local VisitedObjects = {}
 
@@ -140,22 +132,25 @@ local function IsValidTarget(obj)
     if obj.Name == "Baseplate" or obj.Name == "Terrain" then return false end
     if string.lower(obj.Name) == "handle" then return false end
     
-    -- //⚠️ TAPISAN UTAMA BARU: TOLAK TERUS OBJEK NAMA "0"
-    if obj.Name == "0" then return false end
-    -- //⚠️ KUNCI: HANYA TERIMA OBJEK NAMA "1"
-    if obj.Name ~= "1" then return false end
-
     -- Buang Tool, Topi, dan Pemain Lain
     if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then return false end
     for _, player in pairs(Players:GetPlayers()) do
         if player.Character and obj:IsDescendantOf(player.Character) then return false end
     end
 
-    -- MESTI ada Trigger (TouchTransmitter atau ProximityPrompt) untuk pastikan ia memang boleh dikutip
-    local hasTrigger = (obj:FindFirstChildOfClass("TouchTransmitter") ~= nil) or (obj:FindFirstChildOfClass("ProximityPrompt") ~= nil)
-    if not hasTrigger then return false end
+    -- // KUNCI UTAMA:
+    local objName = string.lower(obj.Name)
+    local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
+    
+    -- Tolak terus jika objek atau parentnya bernama "0"
+    if objName == "0" or parentName == "0" then return false end
 
-    return true
+    -- Terima hanya jika objek atau parentnya bernama "1" (tak perlu trigger lagi!)
+    if objName == "1" or parentName == "1" then
+        return true
+    end
+
+    return false
 end
 
 local function GetValidTargets()
@@ -163,17 +158,21 @@ local function GetValidTargets()
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("Model") then
             local prim = obj.PrimaryPart
+            -- Semak nama Model tu sendiri
             if prim and IsValidTarget(prim) and not VisitedObjects[prim] then
                 table.insert(targets, prim)
             end
-        elseif obj:IsA("BasePart") and IsValidTarget(obj) and not VisitedObjects[obj] then
-            table.insert(targets, obj)
+        elseif obj:IsA("BasePart") then
+            -- Semak nama Part tu sendiri
+            if IsValidTarget(obj) and not VisitedObjects[obj] then
+                table.insert(targets, obj)
+            end
         end
     end
     return targets
 end
 
---// ========== LOGIK SAFE MOVE (JALAN LAJU, BUKAN TELEPORT) ==========
+--// SAFE MOVE (Jalan laju, bukan teleport)
 local function SafeMoveAndCollect(target)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -189,10 +188,6 @@ local function SafeMoveAndCollect(target)
         end
         
         hum.WalkSpeed = 16
-        
-        local prompt = target:FindFirstChildOfClass("ProximityPrompt")
-        if prompt then prompt:Trigger() end
-        
         VisitedObjects[target] = true
     end
 end
@@ -202,7 +197,6 @@ local function StartAutoLoop()
     task.spawn(function()
         while AutoCollectOn do
             local targets = GetValidTargets()
-
             if #targets == 0 then
                 VisitedObjects = {}
                 StatusLabel.Text = "Cari semula..."
@@ -210,12 +204,10 @@ local function StartAutoLoop()
             else
                 local char = LocalPlayer.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
                 if hrp then
                     table.sort(targets, function(a, b)
                         return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
                     end)
-
                     local nearest = targets[1]
                     if nearest then
                         StatusLabel.Text = "Kutip: " .. nearest.Name
@@ -228,7 +220,7 @@ local function StartAutoLoop()
     end)
 end
 
---// BUTANG UI
+--// BUTANG
 local function CreateButton(text, yPos, color, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 40)
@@ -239,11 +231,9 @@ local function CreateButton(text, yPos, color, callback)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 13
     btn.Parent = MainFrame
-
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = btn
-
     btn.MouseButton1Click:Connect(function() callback(btn) end)
 end
 
@@ -251,7 +241,6 @@ CreateButton("GERAK KE '1'", 80, Color3.fromRGB(50, 120, 220), function()
     local targets = GetValidTargets()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
     if hrp and #targets > 0 then
         table.sort(targets, function(a, b)
             return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
