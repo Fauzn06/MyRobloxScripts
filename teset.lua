@@ -1,23 +1,22 @@
 --// ==========================================================
---// MERDEKA HUB V9 (FLAG HUNTER + OVERLAY TOGGLE)
+--// MERDEKA HUB V10 (FLOATING OVERLAY)
 --// ==========================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
---// SETUP UI MOBILE
+--// SETUP UI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MerdekaV9Hub"
+ScreenGui.Name = "MerdekaV10Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -130)
+MainFrame.Size = UDim2.new(0, 300, 0, 230)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -115)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
-MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
@@ -39,7 +38,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "MERDEKA HUB V9"
+Title.Text = "MERDEKA HUB V10"
 Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -99,7 +98,7 @@ OpenButton.MouseButton1Click:Connect(function()
     OpenButton.Visible = false
 end)
 
---// ========== LOGIK PENAPISAN KETAT ==========
+--// ========== LOGIK CARIAN (SAMA MACAM V8, TAPI LEBIH KETAT) ==========
 local AutoCollectOn = false
 local VisitedObjects = {}
 
@@ -109,21 +108,18 @@ local function IsValidFlagObject(obj)
     if obj.Name == "Baseplate" or obj.Name == "Terrain" then return false end
     if string.lower(obj.Name) == "handle" then return false end
     
-    -- Buang Tool, Topi, dan Pemain
+    -- Buang Tool, Topi, dan Pemain Lain
     if obj:FindFirstAncestorOfClass("Tool") or obj:FindFirstAncestorOfClass("Accessory") or obj:FindFirstAncestorOfClass("Hat") then return false end
     for _, player in pairs(Players:GetPlayers()) do
         if player.Character and obj:IsDescendantOf(player.Character) then return false end
     end
 
-    -- PENTING: Mesti ada TouchTransmitter atau ProximityPrompt (barulah boleh dikutip)
-    local hasTrigger = (obj:FindFirstChildOfClass("TouchTransmitter") ~= nil) or (obj:FindFirstChildOfClass("ProximityPrompt") ~= nil)
-    if not hasTrigger then return false end
-
-    -- Semak nama objek (Flag, Event, dll) dan nama parent
+    -- Ambil Nama Objek dan Parent
     local objName = string.lower(obj.Name)
     local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
-    
-    local keywords = {"flag", "golden", "malaysia", "merdeka", "hidden", "event", "bendera", "spawn", "point"}
+
+    -- Kata Kunci yang diterima
+    local keywords = {"flag", "golden", "malaysia", "merdeka", "hidden", "bendera", "point", "event", "my"}
     local matchesKeyword = false
     for _, word in ipairs(keywords) do
         if string.find(objName, word) or string.find(parentName, word) then
@@ -132,13 +128,15 @@ local function IsValidFlagObject(obj)
         end
     end
 
-    -- Jika nama objek adalah nombor (cth: "1", "2"), ia MESTI ada trigger untuk diterima
+    -- LOGIK PENTING: Terima objek bernombor macam "1", "2", "3" (sebab user cakap ini yang bagi point)
     local isNumbered = string.match(objName, "^%d+$") ~= nil
-    if isNumbered and hasTrigger then
+    
+    -- Terima jika: Ada kata kunci ATAU nombor (1,2,3)
+    if matchesKeyword or isNumbered then
         return true
     end
 
-    return matchesKeyword
+    return false
 end
 
 --// Ambil Senarai Sasaran
@@ -157,25 +155,26 @@ local function GetValidTargets()
     return targets
 end
 
---// Teleport & Ambil
+--// Teleport & Ambil Point
 local function TeleportAndCollect(target)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
     if hrp and target then
+        -- Teleport ke objek tu
         hrp.CFrame = target.CFrame + Vector3.new(0, 3, 0)
         task.wait(0.2)
 
+        -- Auto trigger ProximityPrompt jika ada
         local prompt = target:FindFirstChildOfClass("ProximityPrompt")
-        if prompt then
-            prompt:Trigger()
-        end
+        if prompt then prompt:Trigger() end
 
+        -- Tandakan objek sebagai sudah dikutip
         VisitedObjects[target] = true
     end
 end
 
---// Auto Collect Loop
+--// Loop Auto Collect
 local function StartAutoLoop()
     task.spawn(function()
         while AutoCollectOn do
